@@ -26,12 +26,31 @@ export JOB_CONTAINER_MAIN_TAG="${JOB_CONTAINER_BASE_TAG}_BUILD_${JOB_DATETIME}"
 echo "##vso[task.setvariable variable=JOB_CONTAINER_MAIN_TAG;]${JOB_CONTAINER_MAIN_TAG}"
 echo "##vso[task.setvariable variable=JOB_CONTAINER_BASE_TAG;]${JOB_CONTAINER_BASE_TAG}"
 
-cd /tmp/build_context
+cd /tmp/build_context || exit 3
+
+if [ ! -f "Dockerfile" ]; then
+  logE "No Dockerfile, cannot continue"
+  exit 4
+fi
 
 logI "Building container"
 buildah \
   --storage-opt mount_program=/usr/bin/fuse-overlayfs \
   --storage-opt ignore_chown_errors=true \
-  bud --format docker -t "${JOB_CONTAINER_MAIN_TAG}" || exit 3
+  bud --format docker -t "${JOB_CONTAINER_MAIN_TAG}"
+  
+resultBuildah=$?
+
+if [ $resultBuildah -ne 0 ]; then
+  logE "buildah bud failed with code $resultBuildah"
+
+  logI "listing build context"
+
+  ls -lart .
+
+  logE "cat Dockerfile"
+  cat Dockerfile
+  exit 5
+fi
 
 logI "Container image JOB_CONTAINER_MAIN_TAG built"
