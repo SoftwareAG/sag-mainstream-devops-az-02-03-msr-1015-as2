@@ -6,13 +6,13 @@
 
 logI "Downloading the build from SUIF..."
 
-huntForSuifFile "05.docker-image-builders/MSR\1015\msr-as2-custom-builder-01" "Dockerfile" || exit 1
-huntForSuifFile "05.docker-image-builders/MSR\1015\msr-as2-custom-builder-01" "install.sh" || exit 2
+huntForSuifFile "05.docker-image-builders/MSR/1015/msr-as2-custom-builder-01" "Dockerfile" || exit 1
+huntForSuifFile "05.docker-image-builders/MSR/1015/msr-as2-custom-builder-01" "install.sh" || exit 2
 
 logI "Preparing the build context..."
 mkdir /tmp/build_context
 
-mv "${SUIF_CACHE_HOME}/05.docker-image-builders/MSR\1015\msr-as2-custom-builder-01/"* /tmp/build_context/
+mv "${SUIF_CACHE_HOME}/05.docker-image-builders/MSR/1015/msr-as2-custom-builder-01/"* /tmp/build_context/
 mv "${SUIF_INSTALL_IMAGE_FILE}" /tmp/build_context/products.zip
 mv "${SUIF_INSTALL_INSTALLER_BIN}" /tmp/build_context/installer.bin
 mv "${SUIF_PATCH_FIXES_IMAGE_FILE}" /tmp/build_context/fixes.zip
