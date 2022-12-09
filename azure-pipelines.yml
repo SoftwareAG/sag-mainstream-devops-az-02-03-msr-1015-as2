@@ -1,0 +1,102 @@
+# Example Software AG Products containers building pipeline
+# Fork and specialize according to need
+
+trigger:
+- main
+
+pool:
+  name: GccAgentsVmss
+  vmImage: Canonical:0001-com-ubuntu-confidential-vm-focal:20_04-lts-gen2:latest
+
+variables:
+  - group: ContainerImagesBuild.Options
+
+jobs:
+
+- job: msr1015as2CustomApproach
+  displayName: 'MSR 10.15 Adapter Set 2 multi staged approach'
+  steps:
+
+    # In general the provided code is reusable and will be templatized when mature enough
+    # Write here the job specific parameters for now
+    # This job is specialized for MSR/1011/lean
+    - script: |
+        JOB_SUIF_TEMPLATE="MSR/1015/BrSapJdbc"
+        echo "Job will use SUIF template ${JOB_SUIF_TEMPLATE}"
+        echo "##vso[task.setvariable variable=JOB_SUIF_TEMPLATE;]${JOB_SUIF_TEMPLATE}"
+      displayName: "Init Specifics"
+
+    # grant execution permissions to the repository scripts
+    - script: find . -type f -name "*.sh" -exec chmod u+x "{}" \;
+      displayName: "Grant shell execution permissions"
+
+    # Some variables must be propagated accross steps
+    - script: |
+        export JOB_SUIF_TAG=$(SUIF_TAG)
+        export SUIF_FIXES_DATE_TAG=$(SUIF_FIXES_DATE_TAG)
+        export MY_AZ_ACR_URL=$(MY_AZ_ACR_URL)
+        ./common/1.init/01.setJobInitialVariables.sh
+      displayName: 'Job Locals'
+    
+    - script: ./common/1.init/02.getSUIF.sh
+      displayName: "Get SUIF commons"
+
+    # get SA share secrets
+    - task: DownloadSecureFile@1
+      name: SASecureInfo
+      displayName: 'Download secure information for images share'
+      inputs: 
+        secureFile: 'sa.share.secrets.sh'
+
+    # mount SA share
+    - script: ./common/1.init/03.mountImagesShare.sh
+      displayName: 'Mount images share'
+
+    # update ubuntu machine
+    - script: ./common/1.init/04.prepareAgentMachine.sh
+      displayName: 'System software preparation'
+
+    # assure installation binaries
+    - script: ./common/2.getInput/01.assureInstallBinaries.sh
+      displayName: 'Assure installation binaries'
+
+    # MSR license is required at build time
+    - task: DownloadSecureFile@1
+      name: msrLicense
+      displayName: 'Download MSR license'
+      inputs:
+        secureFile: 'msr-license.xml'
+
+    # BRMS license is required at build time
+    - task: DownloadSecureFile@1
+      name: brmsLicense
+      displayName: 'Download BRMS license'
+      inputs:
+        secureFile: 'brms-license.xml'
+
+    # Containerize
+    - script: ./specific/multiStageStyle/msr/1015/as2/01.containerize.sh
+      displayName: 'Containerize MSR 10.15 Adapter Set 2'
+
+    # Service Principal is required to connect to ACR
+    - task: DownloadSecureFile@1
+      name: acrSpCredentials
+      displayName: 'Download Service Principal Credentials'
+      inputs:
+        secureFile: 'acr.sp.credentials.sh'
+
+    # Containerize
+    - script: ./common/5.pushOutput/01.pushTags.sh
+      displayName: 'Push tags'
+
+    # Save audit on share 
+    # HINT: ou should use this step only for debug purposes
+    # HINT: without this step the mount may be readonly
+    - script: ./common/6.finalize/01.saveAudit.sh
+      displayName: 'Save Audit on Share'
+      condition: always()
+
+    # umount SA share
+    - script: ./common/6.finalize/02.unmountShare.sh
+      displayName: 'Unmount images share'
+      condition: always()
